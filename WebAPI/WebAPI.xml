@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>WebAPI</name>
+    </assembly>
+    <members>
+        <member name="M:WebAPI.Controllers.AtletaController.Get(System.Int32)">
+            <summary>
+            Devolvera la lista de atletas que esten registrados en la disciplina con id ID
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Get">
+            <summary>
+            Permite obtener todas las disciplinas
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Get(System.Int32)">
+            <summary>
+            Obtiene una sola disciplina segun su ID
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Get(System.String)">
+            <summary>
+            Permite buscar una disciplina segun su Nombre
+            </summary>
+            <param name="nombreDisc"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Post(Compartido.DTOs.Disciplina.NewDisciplinaDTO)">
+             <summary>
+            ¨Permite hacer Post de una nueva disciplina
+             </summary>
+             <param name="newDisciplinaDTO"></param>
+             <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Put(System.Int32,Compartido.DTOs.Disciplina.NewDisciplinaDTO)">
+            <summary>
+            Permite hacer PUT de una disciplina existente buscada por ID
+            </summary>
+            <param name="id"></param>
+            <param name="newDisciplinaDTO"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.DisciplinaController.Delete(System.Int32)">
+            <summary>
+            Permite hacer DELETE de una disciplina existente por su ID
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.EventoController.Get(System.Int32)">
+            <summary>
+            Permite traer todos los eventos que tengan por disciplinaId al ID pasado por parametro
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.EventoController.Get(System.DateTime,System.DateTime)">
+            <summary>
+            Permite traer todos los eventos que se encuentren entre las 2 fechas
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.EventoController.Get(System.String)">
+            <summary>
+            Permite traer todos los eventos cuyo nombre incluya el parametro NOMBRE
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+        <member name="M:WebAPI.Controllers.EventoController.Get(System.Decimal,System.Decimal)">
+            <summary>
+            Permite traer todos los eventos donde al menos 1 atleta recibio un puntaje entre el rango dado
+            </summary>
+            <param name="id"></param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

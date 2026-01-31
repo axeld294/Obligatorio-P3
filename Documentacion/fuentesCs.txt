@@ -1,0 +1,5219 @@
+﻿***********************************
+Archivo: LibreriaContext.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\LibreriaContext.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAccesoDatos
+{
+    public class LibreriaContext : DbContext
+    {
+        public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<Pais> Paises { get; set; }
+        public DbSet<Atleta> Atletas { get; set; }
+        public DbSet<Disciplina> Disciplinas { get; set; }
+        public DbSet<Evento> Eventos { get; set; }
+        public LibreriaContext(DbContextOptions opt) : base(opt)
+        {
+
+        }
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+            // Configurar clave primaria compuesta en Puntaje
+            modelBuilder.Entity<Puntaje>()
+                .HasKey(p => new { p.AtletaId, p.EventoId });
+
+            // Relación Evento -> Disciplina
+            modelBuilder.Entity<Evento>()
+                .HasOne(e => e.Disciplina)
+                .WithMany()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relación Evento -> Puntajes
+            modelBuilder.Entity<Evento>()
+                .HasMany(e => e.Puntajes)
+                .WithOne()
+                .HasForeignKey(p => p.EventoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relación Puntaje -> Atleta
+            modelBuilder.Entity<Puntaje>()
+                .HasOne(p => p.Atleta)
+                .WithMany()
+                .HasForeignKey(p => p.AtletaId)
+                .OnDelete(DeleteBehavior.Restrict);
+            // Relación Puntaje -> Evento
+            modelBuilder.Entity<Puntaje>()
+                .HasOne<Evento>() // Sin navegación inversa desde Evento a Puntaje
+                .WithMany(e => e.Puntajes)
+                .HasForeignKey(p => p.EventoId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
+    }
+}
+
+***********************************
+Archivo: WeatherForecast.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\WeatherForecast.cs
+***********************************
+namespace WebAPI
+{
+    public class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+
+        public int TemperatureC { get; set; }
+
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+
+        public string? Summary { get; set; }
+    }
+}
+
+***********************************
+Archivo: MapperAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\Mappers\MapperAtleta.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.DTOs.Disciplina;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Atleta;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.Mappers
+{
+    public class MapperAtleta
+    {
+        public static IEnumerable<AtletaListadoDTO> ListAtletaToListAtletaDTO(List<Atleta> atletas)
+        {
+            IEnumerable<AtletaListadoDTO> atletasDtos = atletas.Select(u =>
+            new AtletaListadoDTO()
+            {
+                NombreCompleto = u.NombreCompleto,
+                Sexo = (int)u.Sexo,
+                Pais = u.Pais.NombrePais,
+                Id = u.Id,
+                Disciplinas = u.Disciplinas.Select(d => new DisciplinaListadoDTO
+                {
+                    Nombre = d.Nombre.Valor,
+                    AñoIngreso = d.AñoIngreso
+                }).ToList()
+            });
+            return atletasDtos;
+        }
+        public static AtletaDetalleDTO AtletaToAtletaDetalleDTO(Atleta atleta)
+        {
+            if (atleta == null)
+            {
+                throw new AtletaException("Los datos no son correctos");
+            }
+            return new AtletaDetalleDTO()
+            {
+                NombreCompleto = atleta.NombreCompleto,
+                Sexo = (int)atleta.Sexo,
+                Id = atleta.Id,
+                Pais = atleta.Pais.NombrePais,
+                Disciplinas = atleta.Disciplinas.Select(d => new DisciplinaListadoDTO
+                {
+                    Nombre = d.Nombre.Valor,
+                    AñoIngreso = d.AñoIngreso
+                }).ToList()
+            };
+        }
+    }
+}
+
+***********************************
+Archivo: MapperDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\Mappers\MapperDisciplina.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.Mappers
+{
+    public class MapperDisciplina
+    {
+        public static IEnumerable<ListaDisciplinaFiltradaDTO> ListaDisciplinaFilteredToDisciplinaFilteredDTO(List<Disciplina> disciplinas)
+        {
+            IEnumerable<ListaDisciplinaFiltradaDTO> discFiltradaDTO = disciplinas.Select(u =>
+            new ListaDisciplinaFiltradaDTO()
+            {
+                Nombre = u.Nombre.Valor,
+                Id = u.Id,
+            }).ToList();
+            return discFiltradaDTO;
+        }
+        public static IEnumerable<DisciplinaListadoDTO> ListDisciplinaToListDisciplinaDTO(List<Disciplina> disciplinas)
+        {
+            IEnumerable<DisciplinaListadoDTO> disciplinasListado = disciplinas.Select(u => 
+            new DisciplinaListadoDTO()
+            {
+                Nombre = u.Nombre.Valor,
+                Id = u.Id,  
+                AñoIngreso = u.AñoIngreso
+            }).ToList();
+            return disciplinasListado;
+        }
+        public static Disciplina DTODisciplinaToDisciplina(NewDisciplinaDTO disciplinaDTO)
+        {
+            if (disciplinaDTO == null)
+            {
+                throw new DisciplinaException("Los datos no son correctos");
+            }
+            return new Disciplina(disciplinaDTO.Nombre);
+        }
+        public static DisciplinaListadoDTO DisciplinaToDisciplinaListadoDTO(Disciplina disciplina)
+        {
+            if (disciplina == null)
+            {
+                throw new DisciplinaException("Los datos no son correctos");
+            }
+            return new DisciplinaListadoDTO()
+            {
+                Id = disciplina.Id,
+                AñoIngreso = disciplina.AñoIngreso,
+                Nombre = disciplina.Nombre.Valor
+            };
+        }
+    }
+}
+
+***********************************
+Archivo: MapperEvento.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\Mappers\MapperEvento.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Eventos;
+using Compartido.DTOs.Puntaje;
+using LogicaDeNegocio.Entidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.Mappers
+{
+    public class MapperEvento
+    {
+        public static IEnumerable<EventoDTO> ListEventoToEventoDTO(List<Evento> eventos)
+        {
+            IEnumerable<EventoDTO> eventosDTO = eventos.Select(u =>
+            new EventoDTO()
+            {
+                Id = u.Id,
+                Disciplina = u.Disciplina.Id,
+                NombrePrueba = u.NombrePrueba,
+                FechaInicio = u.FechaInicio,
+                FechaFin = u.FechaFin,
+                Atletas = u.Atletas.Select(d => new AtletaListadoDTO
+                {
+                    NombreCompleto = d.NombreCompleto,
+                    Sexo = (int)d.Sexo,
+                    Pais = d.Pais.NombrePais,
+                    Id = d.Id,
+                    Disciplinas = d.Disciplinas.Select(a => new DisciplinaListadoDTO
+                    {
+                        Nombre = a.Nombre.Valor,
+                        AñoIngreso = a.AñoIngreso
+                    }).ToList()
+                }).ToList(),
+                Puntajes = u.Puntajes.Select(a => new PuntajeListadoDTO
+                {
+                    AtletaId = a.AtletaId,
+                    EventoId = a.EventoId,
+                    Valor = a.Valor
+                }).ToList()
+            });
+            return eventosDTO;
+        }
+    }
+}
+
+***********************************
+Archivo: MapperUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\Mappers\MapperUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.ValueObjects;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.Mappers
+{
+    public class MapperUsuario
+    {
+        public static Usuario DTOUsuarioToUsuario(UsuarioDTO usuarioDTO)
+        {
+            if (usuarioDTO == null)
+            {
+                throw new UsuarioException("Los datos no son correctos");
+            }
+            return new Usuario(usuarioDTO.Email, usuarioDTO.Contraseña, usuarioDTO.Rol, usuarioDTO.AdminId);
+        }
+        public static IEnumerable<UsuarioListadoDTO> ListUsuarioToListUsuarioDTO(List<Usuario> usuarios)
+        {
+            IEnumerable<UsuarioListadoDTO> usuariosDtos = usuarios.Select(u =>
+            new UsuarioListadoDTO()
+            {
+                Email = u.Email.Valor,
+                Rol = u.Rol,
+                Id = u.Id
+            });
+            return usuariosDtos;
+        }
+        public static UsuarioDetalleDTO UsuarioToUsuarioDetalleDTO(Usuario usuario)
+        {
+            if (usuario == null)
+            {
+                throw new UsuarioException("Los datos no son correctos");
+            }
+            return new UsuarioDetalleDTO()
+            {
+                Id = usuario.Id,
+                Email = usuario.Email.Valor,
+                Contraseña = usuario.Contraseña.Valor,
+                Rol = usuario.Rol
+            };
+        }
+        public static Usuario UsuarioDetalleAUsuario(UsuarioDetalleDTO usuarioDetalleDTO)
+        {
+            if (usuarioDetalleDTO == null)
+            {
+                throw new UsuarioException("Los datos no son correctos");
+            }
+            return new Usuario(usuarioDetalleDTO.Email, usuarioDetalleDTO.Contraseña, usuarioDetalleDTO.Rol, usuarioDetalleDTO.AdminId);
+        }
+
+        public static UsuarioListadoDTO UsuarioToUsuarioListadoDTO(Usuario usuario)
+        {
+            if (usuario == null)
+            {
+                throw new UsuarioException("El usuario y/o la contraseña, es incorrecta");
+            }
+            return new UsuarioListadoDTO()
+            {
+                Id = usuario.Id,
+                Rol = usuario.Rol,
+                Email = usuario.Email.Valor,
+            };
+        }
+    }
+}
+
+***********************************
+Archivo: 20241126005559_initxd.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241126005559_initxd.cs
+***********************************
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class initxd : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "Disciplinas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AñoIngreso = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Nombre_Valor = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Disciplinas", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Paises",
+                columns: table => new
+                {
+                    NombrePais = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    CantHabitantes = table.Column<int>(type: "int", nullable: false),
+                    NombreDelegado = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    TelefonoDelegado = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Paises", x => x.NombrePais);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Usuarios",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Rol = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Contraseña_Valor = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Email_Valor = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Usuarios", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Atletas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    NombreCompleto = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Sexo = table.Column<int>(type: "int", nullable: false),
+                    PaisNombrePais = table.Column<string>(type: "nvarchar(450)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Atletas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Atletas_Paises_PaisNombrePais",
+                        column: x => x.PaisNombrePais,
+                        principalTable: "Paises",
+                        principalColumn: "NombrePais",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AtletaDisciplina",
+                columns: table => new
+                {
+                    AtletasId = table.Column<int>(type: "int", nullable: false),
+                    DisciplinasId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AtletaDisciplina", x => new { x.AtletasId, x.DisciplinasId });
+                    table.ForeignKey(
+                        name: "FK_AtletaDisciplina_Atletas_AtletasId",
+                        column: x => x.AtletasId,
+                        principalTable: "Atletas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AtletaDisciplina_Disciplinas_DisciplinasId",
+                        column: x => x.DisciplinasId,
+                        principalTable: "Disciplinas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AtletaDisciplina_DisciplinasId",
+                table: "AtletaDisciplina",
+                column: "DisciplinasId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Atletas_PaisNombrePais",
+                table: "Atletas",
+                column: "PaisNombrePais");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "AtletaDisciplina");
+
+            migrationBuilder.DropTable(
+                name: "Usuarios");
+
+            migrationBuilder.DropTable(
+                name: "Atletas");
+
+            migrationBuilder.DropTable(
+                name: "Disciplinas");
+
+            migrationBuilder.DropTable(
+                name: "Paises");
+        }
+    }
+}
+
+***********************************
+Archivo: 20241126005559_initxd.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241126005559_initxd.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241126005559_initxd")]
+    partial class initxd
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127032457_atletas-usuarioadd.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127032457_atletas-usuarioadd.cs
+***********************************
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class atletasusuarioadd : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<int>(
+                name: "AdminID",
+                table: "Usuarios",
+                type: "int",
+                nullable: false,
+                defaultValue: 0);
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "FechaRegistro",
+                table: "Usuarios",
+                type: "datetime2",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "AdminID",
+                table: "Usuarios");
+
+            migrationBuilder.DropColumn(
+                name: "FechaRegistro",
+                table: "Usuarios");
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127032457_atletas-usuarioadd.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127032457_atletas-usuarioadd.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241127032457_atletas-usuarioadd")]
+    partial class atletasusuarioadd
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127175312_correcciondisciplinasfecha.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127175312_correcciondisciplinasfecha.cs
+***********************************
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class correcciondisciplinasfecha : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127175312_correcciondisciplinasfecha.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127175312_correcciondisciplinasfecha.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241127175312_correcciondisciplinasfecha")]
+    partial class correcciondisciplinasfecha
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127191410_createdisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127191410_createdisciplina.cs
+***********************************
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class createdisciplina : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127191410_createdisciplina.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127191410_createdisciplina.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241127191410_createdisciplina")]
+    partial class createdisciplina
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127234726_dbeventos.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127234726_dbeventos.cs
+***********************************
+using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class dbeventos : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<int>(
+                name: "EventoId",
+                table: "Atletas",
+                type: "int",
+                nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "Eventos",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    DisciplinaId = table.Column<int>(type: "int", nullable: false),
+                    NombrePrueba = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    FechaInicio = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    FechaFin = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Eventos", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Eventos_Disciplinas_DisciplinaId",
+                        column: x => x.DisciplinaId,
+                        principalTable: "Disciplinas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Puntaje",
+                columns: table => new
+                {
+                    AtletaId = table.Column<int>(type: "int", nullable: false),
+                    EventoId = table.Column<int>(type: "int", nullable: false),
+                    Valor = table.Column<decimal>(type: "decimal(18,2)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Puntaje", x => new { x.AtletaId, x.EventoId });
+                    table.ForeignKey(
+                        name: "FK_Puntaje_Atletas_AtletaId",
+                        column: x => x.AtletaId,
+                        principalTable: "Atletas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Puntaje_Eventos_EventoId",
+                        column: x => x.EventoId,
+                        principalTable: "Eventos",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Atletas_EventoId",
+                table: "Atletas",
+                column: "EventoId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Eventos_DisciplinaId",
+                table: "Eventos",
+                column: "DisciplinaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Puntaje_EventoId",
+                table: "Puntaje",
+                column: "EventoId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Atletas_Eventos_EventoId",
+                table: "Atletas",
+                column: "EventoId",
+                principalTable: "Eventos",
+                principalColumn: "Id");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Atletas_Eventos_EventoId",
+                table: "Atletas");
+
+            migrationBuilder.DropTable(
+                name: "Puntaje");
+
+            migrationBuilder.DropTable(
+                name: "Eventos");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Atletas_EventoId",
+                table: "Atletas");
+
+            migrationBuilder.DropColumn(
+                name: "EventoId",
+                table: "Atletas");
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127234726_dbeventos.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127234726_dbeventos.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241127234726_dbeventos")]
+    partial class dbeventos
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DisciplinaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaFin")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombrePrueba")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DisciplinaId");
+
+                    b.ToTable("Eventos");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.Property<int>("AtletaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Valor")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("AtletaId", "EventoId");
+
+                    b.HasIndex("EventoId");
+
+                    b.ToTable("Puntaje");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Atletas")
+                        .HasForeignKey("EventoId");
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", "Disciplina")
+                        .WithMany()
+                        .HasForeignKey("DisciplinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Disciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", "Atleta")
+                        .WithMany()
+                        .HasForeignKey("AtletaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Puntajes")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Atleta");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Navigation("Atletas");
+
+                    b.Navigation("Puntajes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127235532_eventoacomodado.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127235532_eventoacomodado.cs
+***********************************
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    /// <inheritdoc />
+    public partial class eventoacomodado : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+
+        }
+    }
+}
+
+***********************************
+Archivo: 20241127235532_eventoacomodado.Designer.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\20241127235532_eventoacomodado.Designer.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    [Migration("20241127235532_eventoacomodado")]
+    partial class eventoacomodado
+    {
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DisciplinaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaFin")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombrePrueba")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DisciplinaId");
+
+                    b.ToTable("Eventos");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.Property<int>("AtletaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Valor")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("AtletaId", "EventoId");
+
+                    b.HasIndex("EventoId");
+
+                    b.ToTable("Puntaje");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Atletas")
+                        .HasForeignKey("EventoId");
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", "Disciplina")
+                        .WithMany()
+                        .HasForeignKey("DisciplinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Disciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", "Atleta")
+                        .WithMany()
+                        .HasForeignKey("AtletaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Puntajes")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Atleta");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Navigation("Atletas");
+
+                    b.Navigation("Puntajes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: LibreriaContextModelSnapshot.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Migrations\LibreriaContextModelSnapshot.cs
+***********************************
+// <auto-generated />
+using System;
+using System.Collections.Generic;
+using LogicaAccesoDatos;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+
+#nullable disable
+
+namespace LogicaAccesoDatos.Migrations
+{
+    [DbContext(typeof(LibreriaContext))]
+    partial class LibreriaContextModelSnapshot : ModelSnapshot
+    {
+        protected override void BuildModel(ModelBuilder modelBuilder)
+        {
+#pragma warning disable 612, 618
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.Property<int>("AtletasId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisciplinasId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AtletasId", "DisciplinasId");
+
+                    b.HasIndex("DisciplinasId");
+
+                    b.ToTable("AtletaDisciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PaisNombrePais")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("Sexo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventoId");
+
+                    b.HasIndex("PaisNombrePais");
+
+                    b.ToTable("Atletas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Disciplina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AñoIngreso")
+                        .HasColumnType("datetime2");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Nombre", "LogicaDeNegocio.Entidades.Disciplina.Nombre#Nombre", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Disciplinas");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DisciplinaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaFin")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaInicio")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombrePrueba")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DisciplinaId");
+
+                    b.ToTable("Eventos");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Pais", b =>
+                {
+                    b.Property<string>("NombrePais")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("CantHabitantes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NombreDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TelefonoDelegado")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("NombrePais");
+
+                    b.ToTable("Paises");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.Property<int>("AtletaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EventoId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Valor")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("AtletaId", "EventoId");
+
+                    b.HasIndex("EventoId");
+
+                    b.ToTable("Puntaje");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Usuario", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdminID")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaRegistro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Rol")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.ComplexProperty<Dictionary<string, object>>("Contraseña", "LogicaDeNegocio.Entidades.Usuario.Contraseña#Contraseña", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.ComplexProperty<Dictionary<string, object>>("Email", "LogicaDeNegocio.Entidades.Usuario.Email#Email", b1 =>
+                        {
+                            b1.IsRequired();
+
+                            b1.Property<string>("Valor")
+                                .IsRequired()
+                                .HasColumnType("nvarchar(max)");
+                        });
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Usuarios");
+                });
+
+            modelBuilder.Entity("AtletaDisciplina", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", null)
+                        .WithMany()
+                        .HasForeignKey("AtletasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", null)
+                        .WithMany()
+                        .HasForeignKey("DisciplinasId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Atleta", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Atletas")
+                        .HasForeignKey("EventoId");
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Pais", "Pais")
+                        .WithMany()
+                        .HasForeignKey("PaisNombrePais")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pais");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Disciplina", "Disciplina")
+                        .WithMany()
+                        .HasForeignKey("DisciplinaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Disciplina");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Puntaje", b =>
+                {
+                    b.HasOne("LogicaDeNegocio.Entidades.Atleta", "Atleta")
+                        .WithMany()
+                        .HasForeignKey("AtletaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LogicaDeNegocio.Entidades.Evento", null)
+                        .WithMany("Puntajes")
+                        .HasForeignKey("EventoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Atleta");
+                });
+
+            modelBuilder.Entity("LogicaDeNegocio.Entidades.Evento", b =>
+                {
+                    b.Navigation("Atletas");
+
+                    b.Navigation("Puntajes");
+                });
+#pragma warning restore 612, 618
+        }
+    }
+}
+
+***********************************
+Archivo: RepositorioAtletaEF.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Repositorios\RepositorioAtletaEF.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAccesoDatos.Repositorios
+{
+    public class RepositorioAtletaEF : IRepositorioAtleta
+    {
+        public LibreriaContext Contexto { get; set; }
+        public RepositorioAtletaEF(LibreriaContext contexto)
+        {
+            Contexto = contexto;
+        }
+
+        public void Add(Atleta item)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Delete(int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Update(Atleta item, int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Atleta FindbyId(int id)
+        {
+            return Contexto.Atletas.Include(a => a.Pais).Include(a => a.Disciplinas).ToList().FirstOrDefault(a => a.Id == id);
+        }
+
+        public IEnumerable<Atleta> FindAll()
+        {
+            return Contexto.Atletas.Include(a => a.Pais)
+                .Include(a => a.Disciplinas).ToList()
+                .OrderBy(a => a.Pais.NombrePais.Trim().ToUpper())
+                .ThenBy(a => ObtenerApellido(a.NombreCompleto).ToUpper()) 
+                .ThenBy(a => ObtenerNombre(a.NombreCompleto).ToUpper()); ;
+        }
+        private string ObtenerApellido(string nombreCompleto)
+        {
+            var partes = nombreCompleto.Split(' ');
+            return partes.Length > 1 ? partes.Last() : nombreCompleto; 
+        }
+
+        private string ObtenerNombre(string nombreCompleto)
+        {
+            var partes = nombreCompleto.Split(' ');
+            return partes.Length > 1 ? string.Join(" ", partes.Take(partes.Length - 1)) : nombreCompleto; // Resto como nombre
+        }
+        public IEnumerable<Disciplina> FindAllFiltered(int id)
+        {
+            IEnumerable<int> disciplinasAtletaIds = Contexto.Atletas.Where(a => a.Id == id).SelectMany(a => a.Disciplinas.Select(d => d.Id)).ToList();
+            IEnumerable<Disciplina> disciplinasFiltradas = Contexto.Disciplinas.Where(d => !disciplinasAtletaIds.Contains(d.Id)).ToList();
+            return disciplinasFiltradas;
+        }
+        public void AddDisciplina(int atletaId, int disciplinaId)
+        {
+            Atleta atleta = FindbyId(atletaId);
+            Disciplina disciplinaNueva = Contexto.Disciplinas.Where(u => u.Id == disciplinaId).SingleOrDefault();
+            if (atleta != null)
+            {
+                atleta.Disciplinas.Add(disciplinaNueva);
+                Contexto.SaveChanges();
+            }
+        }
+        public IEnumerable<Atleta> FindAllFilteredByDiscId(int id)
+        {
+            return Contexto.Atletas
+                .Include(a => a.Pais)
+                .Include(a => a.Disciplinas)
+                .Where(atleta => atleta.Disciplinas.Any(disciplina => disciplina.Id == id))
+                .OrderBy(atleta => atleta.NombreCompleto.Trim().ToUpper())
+                .ToList();
+        }
+    }
+}
+
+***********************************
+Archivo: RepositorioDisciplinaEF.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Repositorios\RepositorioDisciplinaEF.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAccesoDatos.Repositorios
+{
+    public class RepositorioDisciplinaEF : IRepositorioDisciplina
+    {
+        public LibreriaContext Contexto { get; set; }
+        public RepositorioDisciplinaEF(LibreriaContext contexto)
+        {
+            Contexto = contexto;
+        }
+        public void Add(Disciplina item)
+        {
+            Disciplina disciplinaEcontrada = FindByName(item.Nombre.Valor);
+            if (disciplinaEcontrada == null)
+            {
+                Contexto.Disciplinas.Add(item);
+                Contexto.SaveChanges();
+            }
+            else
+            {
+                throw new ConflictException("Ya existe una disciplina con ese nombre");
+            }
+        }
+
+        public void Delete(int id)
+        {
+            Disciplina disciplina = FindbyId(id);
+            if (disciplina != null)
+            {
+                Contexto.Disciplinas.Remove(disciplina);
+                Contexto.SaveChanges();
+            }
+            else
+            {
+                throw new DisciplinaException("No se encontro disciplina con ese id");
+            }
+        }
+
+        public IEnumerable<Disciplina> FindAll()
+        {
+            return Contexto.Disciplinas.OrderBy(d => d.Nombre.Valor).ToList();
+        }
+
+        public Disciplina FindbyId(int id)
+        {
+            return Contexto.Disciplinas.Find(id);
+        }
+        public Disciplina FindByName(string name)
+        {
+            return Contexto.Disciplinas.Where(a => a.Nombre.Valor == name).SingleOrDefault();
+        }
+        public void Update(Disciplina item, int id)
+        {
+            Disciplina disciplina = FindbyId(id);
+            if (disciplina == null)
+            {
+                throw new DisciplinaException("Disciplina no encontrada");
+            }
+            if (disciplina.Nombre.Valor != item.Nombre.Valor)
+            {
+                Disciplina disciplinaEncontrada = FindByName(item.Nombre.Valor);
+                if (disciplinaEncontrada != null)
+                {
+                    throw new ConflictException("El nombre ya está en uso por otra disciplina");
+                }
+                disciplina.Nombre = item.Nombre;
+            }
+            Contexto.Disciplinas.Update(disciplina);
+            Contexto.SaveChanges();
+        }
+    }
+}
+
+***********************************
+Archivo: RepositorioEventoEF.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Repositorios\RepositorioEventoEF.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAccesoDatos.Repositorios
+{
+    public class RepositorioEventoEF : IRepositorioEvento
+    {
+        public LibreriaContext Contexto { get; set; }
+        public RepositorioEventoEF(LibreriaContext contexto)
+        {
+            Contexto = contexto;
+        }
+
+        public void Add(Evento item)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Delete(int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Update(Evento item, int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Evento FindbyId(int id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<Evento> FindAll()
+        {
+            throw new NotImplementedException();
+        }
+        public IEnumerable<Evento> FindByDiscId(int id)
+        {
+            return Contexto.Eventos
+                .Include(e => e.Disciplina)               
+                .Include(e => e.Atletas)                 
+                .ThenInclude(a => a.Pais)                
+                .Include(e => e.Puntajes)                
+                .Where(e => e.Disciplina.Id == id)      
+                .ToList();
+        }
+        public IEnumerable<Evento> FindByDateRange(DateTime fechaInicio, DateTime fechafin)
+        {
+            return Contexto.Eventos
+                .Include(e => e.Disciplina)
+                .Include(e => e.Atletas)
+                .ThenInclude(a => a.Pais)
+                .Include(e => e.Puntajes)
+                .Where(e => e.FechaInicio >= fechaInicio && e.FechaInicio <= fechafin)
+                .ToList();
+        }
+        public IEnumerable<Evento> FindByPartialName(string name)
+        {
+            return Contexto.Eventos
+                .Include(e => e.Disciplina)
+                .Include(e => e.Atletas)
+                .ThenInclude(a => a.Pais)
+                .Include(e => e.Puntajes)
+                .Where(e => e.NombrePrueba.Trim().ToLower().Contains(name.Trim().ToLower()))
+                .ToList();
+        }
+        public IEnumerable<Evento> FindByPointsRange(decimal pmin, decimal pmax)
+        {
+            return Contexto.Eventos
+                .Include(e => e.Disciplina)           
+                .Include(e => e.Atletas)            
+                .ThenInclude(a => a.Pais)            
+                .Include(e => e.Puntajes)            
+                .Where(e => e.Puntajes.Any(p => p.Valor >= pmin && p.Valor <= pmax)) 
+                .ToList();
+        }
+    }
+}
+
+***********************************
+Archivo: RepositorioUsuarioEF.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAccesoDatos\Repositorios\RepositorioUsuarioEF.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.InterfacesRepositorio;
+using Microsoft.EntityFrameworkCore.Query;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAccesoDatos.Repositorios
+{
+    public class RepositorioUsuarioEF : IRepositorioUsuario
+    {
+        public LibreriaContext Contexto { get; set; }
+        public RepositorioUsuarioEF(LibreriaContext contexto)
+        {
+            Contexto = contexto;
+        }
+        public void Add(Usuario item)
+        {
+            Usuario usuarioEcontrado = FindByEmail(item.Email.Valor);
+            if (usuarioEcontrado == null)
+            {
+                Contexto.Usuarios.Add(item);
+                Contexto.SaveChanges();
+            }
+            else
+            {
+                throw new UsuarioException("Ya existe un usuario con ese email");
+            }
+        }
+        public void Delete(int id)
+        {
+            Usuario usuario = FindbyId(id);
+            if (usuario != null)
+            {
+                Contexto.Usuarios.Remove(usuario);
+                Contexto.SaveChanges();
+            }
+            else
+            {
+                throw new UsuarioException("No se encontro usuario con ese id");
+            }
+        }
+        public IEnumerable<Usuario> FindAll()
+        {
+            return Contexto.Usuarios;
+        }
+        public Usuario FindbyId(int id)
+        {
+            return Contexto.Usuarios.Find(id);
+        }
+        public void Update(Usuario item, int id)
+        {
+            Usuario usuario = FindbyId(id);
+            if (usuario == null)
+            {
+                throw new UsuarioException("Usuario no encontrado");
+            }
+            if (usuario.Email.Valor != item.Email.Valor)
+            {
+                Usuario usuarioEncontrado = FindByEmail(item.Email.Valor);
+                if (usuarioEncontrado != null)
+                {
+                    throw new UsuarioException("El email ya está en uso por otro usuario");
+                }
+                usuario.Email = item.Email;
+            }
+            usuario.Contraseña = item.Contraseña;
+            usuario.Rol = item.Rol;
+            Contexto.Usuarios.Update(usuario);
+            Contexto.SaveChanges();
+        }
+        public Usuario FindByEmail(string email)
+        {
+            return Contexto.Usuarios.Where(Usuario => Usuario.Email.Valor == email).SingleOrDefault();
+        }
+        public Usuario FindByEmailAndPassword(string email, string password)
+        {
+            return Contexto.Usuarios.Where(u => u.Email.Valor == email && u.Contraseña.Valor == password).SingleOrDefault();
+        }
+    }
+}
+
+***********************************
+Archivo: Atleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Atleta.cs
+***********************************
+using LogicaDeNegocio.InterfacesEntidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Atleta: IEntity, IComparable<Atleta>
+    {
+        public string NombreCompleto { get; set; }
+        public Sexo Sexo { get; set; }
+        public int Id { get; set; }  
+        public Pais Pais { get; set; }
+        public List<Disciplina> Disciplinas { get; set; }
+        public Atleta() { }
+        public Atleta(string nombreCompleto, Sexo sexo, int id, Pais pais)
+        {
+            NombreCompleto = nombreCompleto;
+            Sexo = sexo;
+            Id = id;
+            Pais = pais;
+            Disciplinas = new List<Disciplina>();
+        }
+
+        public int CompareTo(Atleta? other)
+        {
+            if (other == null) return 1;
+            return Pais.NombrePais.Trim().ToUpper().CompareTo(other.Pais.NombrePais.Trim().ToUpper());
+        }
+    }
+}
+
+***********************************
+Archivo: Disciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Disciplina.cs
+***********************************
+using LogicaDeNegocio.ExcepcionesEntidades.Atleta;
+using LogicaDeNegocio.ValueObjects;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Disciplina
+    {
+        public Nombre Nombre { get; set; }
+        public int Id { get; set; }
+        public DateTime AñoIngreso { get; set; }
+        public List<Atleta> Atletas { get; set; }
+        public Disciplina() { }
+        public Disciplina(string nombre)
+        {
+            Nombre = new Nombre(nombre);
+            AñoIngreso = DateTime.Now;
+        }
+        public bool Equals(Disciplina? other)
+        {
+            return other.Nombre.Equals(Nombre);
+        }
+    }
+}
+
+***********************************
+Archivo: Evento.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Evento.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Evento
+    {
+        public int Id { get; set; }
+        public Disciplina Disciplina { get; set; }
+        public string NombrePrueba { get; set; }
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin {  get; set; }
+        public List<Atleta> Atletas { get; set; }
+        public List<Puntaje> Puntajes { get; set; }
+        public Evento() { }
+        public Evento(Disciplina disciplina, string nombreprueba, DateTime fechainicio, DateTime fechafin)
+        {
+            Disciplina = disciplina;
+            NombrePrueba = nombreprueba;
+            FechaInicio = fechainicio;
+            FechaFin = fechafin;
+            Atletas = new List<Atleta>();
+            Puntajes = new List<Puntaje>();
+        }
+    }
+}
+
+***********************************
+Archivo: Pais.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Pais.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Pais
+    {
+        [Key]
+        public string NombrePais { get; set; }
+        public int CantHabitantes { get; set; }
+        public string NombreDelegado { get; set; }
+        public string TelefonoDelegado { get; set; }
+        public Pais() { }
+        public Pais(int cantHabitantes, string nombrePais, string nombreDelegado, string telefonoDelegado)
+        {
+            CantHabitantes = cantHabitantes;
+            NombrePais = nombrePais;
+            NombreDelegado = nombreDelegado;
+            TelefonoDelegado = telefonoDelegado;
+        }
+    }
+}
+
+***********************************
+Archivo: Puntaje.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Puntaje.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Puntaje
+    {
+        public Atleta Atleta { get; set; }
+        public int AtletaId { get; set; }
+        public int EventoId { get; set; }
+        public decimal Valor { get; set; }
+        public Puntaje() { }
+        public Puntaje(Atleta atleta, decimal valor)
+        {
+            Atleta = atleta;
+            Valor = valor;
+        }
+    }
+}
+
+***********************************
+Archivo: Sexo.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Sexo.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public enum Sexo
+    {
+        Masculino,
+        Femenino
+    }
+}
+
+***********************************
+Archivo: Usuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\Entidades\Usuario.cs
+***********************************
+using LogicaDeNegocio.InterfacesEntidades;
+using LogicaDeNegocio.ValueObjects;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.Entidades
+{
+    public class Usuario: IEntity
+    {
+        public int Id { get; set; }
+        public Email Email { get; set; }
+        public Contraseña Contraseña { get; set; }
+        public string Rol { get; set; }
+        public DateTime FechaRegistro { get; set; }
+        public int AdminID { get; set; }
+
+        private Usuario() { }
+        public Usuario(string email, string contraseña, string rol, int adminId)
+        {
+            Email = new Email(email);
+            Contraseña = new Contraseña(contraseña);
+            Rol = rol;
+            FechaRegistro = DateTime.Now;
+            AdminID = adminId;
+        }
+    }
+}
+
+***********************************
+Archivo: ConflictException.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ExcepcionesEntidades\ConflictException.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ExcepcionesEntidades
+{
+    public class ConflictException: Exception
+    {
+        public ConflictException() { }
+        public ConflictException(string message) : base(message) { }
+        public ConflictException(string message, Exception innerException) : base(message, innerException) { }
+    }
+}
+
+***********************************
+Archivo: IEntity.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesEntidades\IEntity.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesEntidades
+{
+    public interface IEntity
+    {
+        public int Id { get; set; }
+    }
+}
+
+***********************************
+Archivo: IRepositorio.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesRepositorio\IRepositorio.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesRepositorio
+{
+    public interface IRepositorio<T>
+    {
+        void Add(T item);
+        void Delete(int id);
+        void Update(T item, int id);
+        T FindbyId(int id);
+        IEnumerable<T> FindAll();
+    }
+}
+
+***********************************
+Archivo: IRepositorioAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesRepositorio\IRepositorioAtleta.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesRepositorio
+{
+    public interface IRepositorioAtleta : IRepositorio<Atleta>
+    {
+        IEnumerable<Disciplina> FindAllFiltered(int id);
+        void AddDisciplina(int atletaId, int disciplinaId);
+        IEnumerable<Atleta> FindAllFilteredByDiscId(int id);
+    }
+}
+
+***********************************
+Archivo: IRepositorioDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesRepositorio\IRepositorioDisciplina.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesRepositorio
+{
+    public interface IRepositorioDisciplina : IRepositorio<Disciplina>
+    {
+        Disciplina FindByName(string name);
+    }
+}
+***********************************
+Archivo: IRepositorioEvento.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesRepositorio\IRepositorioEvento.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesRepositorio
+{
+    public interface IRepositorioEvento : IRepositorio<Evento>
+    {
+        IEnumerable<Evento> FindByDiscId(int id);
+        IEnumerable<Evento> FindByDateRange(DateTime fechaInicio, DateTime fechafin);
+        IEnumerable<Evento> FindByPartialName(string name);
+        IEnumerable<Evento> FindByPointsRange(decimal pmin, decimal pmax);
+    }
+}
+
+***********************************
+Archivo: IRepositorioUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\InterfacesRepositorio\IRepositorioUsuario.cs
+***********************************
+using LogicaDeNegocio.Entidades;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.InterfacesRepositorio
+{
+    public interface IRepositorioUsuario : IRepositorio<Usuario>
+    {
+        Usuario FindByEmailAndPassword(string email, string password);
+    }
+}
+
+***********************************
+Archivo: Contraseña.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ValueObjects\Contraseña.cs
+***********************************
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+
+namespace LogicaDeNegocio.ValueObjects
+{
+    [ComplexType]
+    public record Contraseña
+    {
+        public string Valor { get; init; }
+
+        //public Contraseña() { }
+
+        public Contraseña(string valor)
+        {
+            Valor = valor;
+            Validar();
+        }
+        public void Validar()
+        {
+            if (Valor.Trim().Length < 6)
+            {
+                throw new UsuarioException("La contraseña debe tener 6 caracteres como minimo");
+            }
+            if (!PasswordValida())
+            {
+                throw new UsuarioException("La contraseña no cumple con las restricciones indicadas, " +
+                    "debe tener por lo menos un número, una letra minúscula y una letra mayúscula");
+            }
+        }
+        private bool PasswordValida()
+        {
+            int i = 0;
+            bool esMinuscula = false;
+            bool esMayuscula = false;
+            bool tieneDigito = false;
+            bool tieneSimbolo = false;
+            bool esValido = false;
+            while (i < Valor.Length && !esValido)
+            {
+                if (char.IsLetter(Valor[i]))
+                {
+                    if (char.IsLower(Valor[i]))
+                    {
+                        esMinuscula = true;
+                    }
+                    else
+                    {
+                        esMayuscula = true;
+                    }
+                }
+                else if (char.IsDigit(Valor[i]))
+                {
+                    tieneDigito = true;
+                } else if (Valor.IndexOf(".") != -1 || Valor.IndexOf(",") != -1 || Valor.IndexOf(";") != -1 || Valor.IndexOf("!") != -1)
+                {
+                    tieneSimbolo = true;
+                }
+                if (esMinuscula && esMayuscula && tieneDigito && tieneSimbolo)
+                {
+                    esValido = true;
+                }
+                i++;
+            }
+            return esValido;
+        }
+    }
+}
+
+***********************************
+Archivo: Email.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ValueObjects\Email.cs
+***********************************
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ValueObjects
+{
+    [ComplexType]
+    public record Email
+    {
+        public string Valor {  get; init; }
+
+        public Email(string valor)
+        {
+            Valor = valor;
+            Validar();
+        }
+        public void Validar()
+        {
+            if (Valor.IndexOf("@")== -1)
+            {
+                throw new UsuarioException("El email no es correcto");
+            }
+        }
+    }
+}
+
+***********************************
+Archivo: Nombre.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ValueObjects\Nombre.cs
+***********************************
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ValueObjects
+{
+    [ComplexType]
+    public record Nombre
+    {
+        public string Valor { get; init; }
+
+        public Nombre(string valor)
+        {
+            Valor = valor;
+            Validar();
+        }
+        public void Validar()
+        {
+            if (Valor.Trim().Length < 10 || Valor.Trim().Length > 50)
+            {
+                throw new DisciplinaException("El nombre de la disciplina debe tener entre 10 y 50 caracteres");
+            }
+        }
+    }
+}
+
+***********************************
+Archivo: AtletaController.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\Controllers\AtletaController.cs
+***********************************
+using LogicaAplicacion.ImplementacionCasosUso.Atletas;
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using Microsoft.AspNetCore.Mvc;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace WebAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AtletaController : ControllerBase
+    {
+        public IBuscarAtletasFiltradosPorDiscId BuscarAtletasFiltradosPorDiscId { get; set; }
+        public IListaAtletas ListaAtletas {  get; set; }
+        public AtletaController(IBuscarAtletasFiltradosPorDiscId buscarAtletasFiltradosPorDiscId, IListaAtletas listaAtletas)
+        {
+            BuscarAtletasFiltradosPorDiscId = buscarAtletasFiltradosPorDiscId;
+            ListaAtletas = listaAtletas;
+        }
+        // GET: api/<AtletaController>
+        [HttpGet]
+        public IActionResult Get()
+        {
+            return Ok(ListaAtletas.Ejecutar());
+        }
+
+        /// <summary>
+        /// Devolvera la lista de atletas que esten registrados en la disciplina con id ID
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // GET api/<AtletaController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("filtradosDisciplina/{id}")]
+        public IActionResult Get(int id)
+        {
+            try
+            {
+                if (id == 0)
+                {
+                    return BadRequest("El id no es correcto");
+                }
+                return Ok(BuscarAtletasFiltradosPorDiscId.Ejecutar(id));
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /*// POST api/<AtletaController>
+        [HttpPost]
+        public void Post([FromBody] string value)
+        {
+        }
+
+        // PUT api/<AtletaController>/5
+        [HttpPut("{id}")]
+        public void Put(int id, [FromBody] string value)
+        {
+        }
+
+        // DELETE api/<AtletaController>/5
+        [HttpDelete("{id}")]
+        public void Delete(int id)
+        {
+        }*/
+    }
+}
+
+***********************************
+Archivo: DisciplinaController.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\Controllers\DisciplinaController.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using LogicaAplicacion.ImplementacionCasosUso.Usuarios;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.ExcepcionesEntidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace WebAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class DisciplinaController : ControllerBase
+    {
+        public IListaDisciplinas ListaDisciplinas { get; set; }
+        public IBuscarDisciplinaID BuscarDisciplinaID { get; set; }
+        public IAltaDisciplina AltaDisciplina { get; set; }
+        public IEditarDisciplina EditarDisciplina { get; set; }
+        public IEliminarDisciplina EliminarDisciplina { get; set; }
+        public IBuscarDisciplinaNombre BuscarDisciplinaNombre { get; set; }
+        public DisciplinaController(IListaDisciplinas listaDisciplinas, IBuscarDisciplinaID buscarDisciplinaID, IAltaDisciplina altaDisciplina, IEditarDisciplina editarDisciplina, IEliminarDisciplina eliminarDisciplina, IBuscarDisciplinaNombre buscarDisciplinaNombre)
+        {
+            ListaDisciplinas = listaDisciplinas;
+            BuscarDisciplinaID = buscarDisciplinaID;
+            AltaDisciplina = altaDisciplina;
+            EditarDisciplina = editarDisciplina;
+            EliminarDisciplina = eliminarDisciplina;
+            BuscarDisciplinaNombre = buscarDisciplinaNombre;
+        }
+        /// <summary>
+        /// Permite obtener todas las disciplinas
+        /// </summary>
+        /// <returns></returns>
+        // GET: api/<DisciplinaController>
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpGet]
+        public IActionResult Get()
+        {
+            try
+            {
+                return Ok(ListaDisciplinas.Ejecutar());
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        /// Obtiene una sola disciplina segun su ID
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        
+        // GET api/<DisciplinaController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpGet("{id}", Name = "FindbyId")]
+        public IActionResult Get(int id)
+        {
+            try
+            {
+                if (id == 0)
+                {
+                    return BadRequest("El id no es correcto");
+                }
+                return Ok(BuscarDisciplinaID.Ejecutar(id));
+            }
+            catch (DisciplinaException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        /// Permite buscar una disciplina segun su Nombre
+        /// </summary>
+        /// <param name="nombreDisc"></param>
+        /// <returns></returns>
+        // GET api/<DisciplinaController>/Baloncesto
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpGet("porNombre/{nombreDisc}")]
+        public IActionResult Get(string nombreDisc)
+        {
+            try
+            {
+                if (nombreDisc == "")
+                {
+                    return BadRequest("El nombre no puede ser vacio");
+                }
+                return Ok(BuscarDisciplinaNombre.Ejecutar(nombreDisc));
+            }
+            catch (DisciplinaException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        ///¨Permite hacer Post de una nueva disciplina
+        /// </summary>
+        /// <param name="newDisciplinaDTO"></param>
+        /// <returns></returns>
+        // POST api/<DisciplinaController>
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpPost]
+        public IActionResult Post([FromBody] NewDisciplinaDTO newDisciplinaDTO)
+        {
+            try
+            {
+                if (newDisciplinaDTO == null)
+                {
+                    return BadRequest("Datos incorrectos");
+                }
+                if (newDisciplinaDTO.Id > 0 )
+                {
+                    return BadRequest("El Id debe ser 0");
+                }
+                AltaDisciplina.Ejecutar(newDisciplinaDTO);
+                return CreatedAtRoute("FindbyId", new { Id = newDisciplinaDTO.Id }, newDisciplinaDTO);
+            }
+            catch (ConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
+            catch (DisciplinaException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        /// Permite hacer PUT de una disciplina existente buscada por ID
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="newDisciplinaDTO"></param>
+        /// <returns></returns>
+        // PUT api/<DisciplinaController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpPut("{id}")]
+        public IActionResult Put(int id, [FromBody] NewDisciplinaDTO newDisciplinaDTO)
+        {
+            try
+            {
+                if (id == 0)
+                {
+                    return BadRequest("El Id debe ser distinto a 0");
+                }
+                if (id != newDisciplinaDTO.Id)
+                {
+                    return BadRequest("Los Id recibidos no son correctos");
+                }
+                EditarDisciplina.Ejecutar(newDisciplinaDTO, id);
+                return Ok(newDisciplinaDTO);
+            }
+            catch (ConflictException ex)
+            {
+                return Conflict(ex.Message);
+            }
+            catch (DisciplinaException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        /// Permite hacer DELETE de una disciplina existente por su ID
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // DELETE api/<DisciplinaController>/5
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [Authorize]
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
+        {
+            try
+            {
+                if (id == 0)
+                {
+                    return BadRequest("El Id debe ser distinto a 0");
+                }
+                EliminarDisciplina.Ejecutar(id);
+                return NoContent();
+            }
+            catch (DisciplinaException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+    }
+}
+
+***********************************
+Archivo: EventoController.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\Controllers\EventoController.cs
+***********************************
+using LogicaAplicacion.ImplementacionCasosUso.Disciplinas;
+using LogicaAplicacion.InterfaceCasosUso.Eventos;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Evento;
+using Microsoft.AspNetCore.Mvc;
+using System;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace WebAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class EventoController : ControllerBase
+    {
+        public IEventoPorDisciplinaId EventoPorDisciplinaId { get; set; }
+        public IEventoPorRangoFechas EventoPorRangoFechas { get; set; }
+        public IEventoPorNombreParcial EventoPorNombreParcial { get; set; }
+        public IEventoPorRangoPuntajes EventoPorRangoPuntajes { get; set; }
+        public EventoController(IEventoPorDisciplinaId eventoPorDisciplinaId, IEventoPorRangoFechas eventoPorRangoFechas, IEventoPorNombreParcial eventoPorNombreParcial, IEventoPorRangoPuntajes eventoPorRangoPuntajes)
+        {
+            EventoPorDisciplinaId = eventoPorDisciplinaId;
+            EventoPorRangoFechas = eventoPorRangoFechas;
+            EventoPorNombreParcial = eventoPorNombreParcial;
+            EventoPorRangoPuntajes = eventoPorRangoPuntajes;
+        }
+        /*// GET: api/<EventoController>
+        [HttpGet]
+        public IEnumerable<string> Get()
+        {
+            return new string[] { "value1", "value2" };
+        }*/
+
+        /// <summary>
+        /// Permite traer todos los eventos que tengan por disciplinaId al ID pasado por parametro
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // GET api/<EventoController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("disciplina/{id}")]
+        public IActionResult Get(int id)
+        {
+            try
+            {
+                if (id == 0)
+                {
+                    return BadRequest("El id no es correcto");
+                }
+                return Ok(EventoPorDisciplinaId.Ejecutar(id));
+            }
+            catch (EventoException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error en los datos");
+            }
+        }
+
+        /// <summary>
+        /// Permite traer todos los eventos que se encuentren entre las 2 fechas
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // GET api/<EventoController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("fechas/{fechaInicio}/{fechaFin}")]
+        public IActionResult Get(DateTime fechaInicio, DateTime fechaFin)
+        {
+            try
+            {
+                if (fechaInicio == default || fechaFin == default)
+                {
+                    return BadRequest("Las fechas no son válidas");
+                }
+                if (fechaInicio > fechaFin)
+                {
+                    return BadRequest("La fecha de inicio no puede ser mayor que la fecha de fin");
+                }
+                return Ok(EventoPorRangoFechas.Ejecutar(fechaInicio, fechaFin));
+            }
+            catch (EventoException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error en los datos: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Permite traer todos los eventos cuyo nombre incluya el parametro NOMBRE
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // GET api/<EventoController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("nombre/{nombre}")]
+        public IActionResult Get(string nombre)
+        {
+            try
+            {
+                if (nombre == "" || nombre == null)
+                {
+                    return BadRequest("El nombre no puede ser vacio");
+                }
+                return Ok(EventoPorNombreParcial.Ejecutar(nombre));
+            }
+            catch (EventoException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error en los datos: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Permite traer todos los eventos donde al menos 1 atleta recibio un puntaje entre el rango dado
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        // GET api/<EventoController>/5
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [HttpGet("puntaje/{puntajeMin}/{puntajeMax}")]
+        public IActionResult Get(decimal puntajeMin, decimal puntajeMax)
+        {
+            try
+            {
+                if (puntajeMin == null || puntajeMax == null)
+                {
+                    return BadRequest("Los puntajes no pueden ser vacios");
+                }
+                if (puntajeMin > puntajeMax)
+                {
+                    return BadRequest("El puntaje minimo no puede ser mas grande que el puntaje maximo");
+                }
+                if (puntajeMin > 10 || puntajeMax > 10)
+                {
+                    return BadRequest("El puntaje no puede ser mayor a 10");
+                }
+                return Ok(EventoPorRangoPuntajes.Ejecutar(puntajeMin, puntajeMax));
+            }
+            catch (EventoException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error en los datos: {ex.Message}");
+            }
+        }
+
+        /*// POST api/<EventoController>
+        [HttpPost]
+        public void Post([FromBody] string value)
+        {
+        }
+
+        // PUT api/<EventoController>/5
+        [HttpPut("{id}")]
+        public void Put(int id, [FromBody] string value)
+        {
+        }
+
+        // DELETE api/<EventoController>/5
+        [HttpDelete("{id}")]
+        public void Delete(int id)
+        {
+        }*/
+    }
+}
+
+***********************************
+Archivo: UsuarioController.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\Controllers\UsuarioController.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using Microsoft.AspNetCore.Mvc;
+using WebAPILibreria.Token;
+
+// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+
+namespace WebAPI.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class UsuarioController : ControllerBase
+    {
+        public ILoginUsuario LoginUsuario { get; set; }
+        public UsuarioController(ILoginUsuario loginUsuario)
+        {
+            LoginUsuario = loginUsuario;
+        }
+
+        [HttpPost("login/{email}/{password}")]
+        public IActionResult Login(string email, string password)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
+                {
+                    return BadRequest("Los datos no son correctos");
+                }
+                UsuarioListadoDTO usuario = LoginUsuario.Ejecutar(email, password);
+                if (usuario != null)
+                {
+                    usuario.Token = ManejadorToken.CrearToken(usuario);
+                    return Ok(usuario);
+                }
+                return NotFound("No se encontro el usuario");
+            }
+            catch (UsuarioException ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        public IActionResult Logout()
+        {
+            HttpContext.Session.Clear();
+            return RedirectToAction("Login");
+        }
+        // GET: api/<UsuarioController>
+        [HttpGet]
+        public IEnumerable<string> Get()
+        {
+            return new string[] { "value1", "value2" };
+        }
+
+        // GET api/<UsuarioController>/5
+        [HttpGet("{id}")]
+        public string Get(int id)
+        {
+            return "value";
+        }
+
+        // POST api/<UsuarioController>
+        [HttpPost]
+        public void Post([FromBody] string value)
+        {
+        }
+
+        // PUT api/<UsuarioController>/5
+        [HttpPut("{id}")]
+        public void Put(int id, [FromBody] string value)
+        {
+        }
+
+        // DELETE api/<UsuarioController>/5
+        [HttpDelete("{id}")]
+        public void Delete(int id)
+        {
+        }
+    }
+}
+
+***********************************
+Archivo: ManejadorToken.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\WebAPI\Token\ManejadorToken.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace WebAPILibreria.Token
+{
+    public class ManejadorToken
+    {
+        internal static string CrearToken(UsuarioListadoDTO usuarioDTO)
+        {
+
+            byte[] clave = Encoding.ASCII.GetBytes("ZWRpw6fDo28gZW0gY29tcHV0YWRvcmE=");
+
+            JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+
+            //clave secreta, generalmente se incluye en el archivo de configuración
+            //Debe ser un vector de bytes         
+
+            //Se incluye un claim para el email
+            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+                {
+                    new Claim(ClaimTypes.Email, usuarioDTO.Email),
+                    new Claim(ClaimTypes.Role, usuarioDTO.Rol),
+
+                }),
+                Expires = DateTime.UtcNow.AddMinutes(30),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(clave),
+                SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            return tokenHandler.WriteToken(token);
+        }
+    }
+}
+***********************************
+Archivo: AtletaDetalleDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Atletas\AtletaDetalleDTO.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Atletas
+{
+    public class AtletaDetalleDTO
+    {
+        public string NombreCompleto { get; set; }
+        public int Sexo { get; set; }
+        public int Id { get; set; }
+        public string Pais { get; set; }
+        public List<DisciplinaListadoDTO> Disciplinas { get; set; }
+    }
+}
+
+***********************************
+Archivo: AtletaListadoDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Atletas\AtletaListadoDTO.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Atletas
+{
+    public class AtletaListadoDTO
+    {
+        public string NombreCompleto { get; set; }
+        public int Sexo { get; set; }
+        public string Pais { get; set; }
+        public int Id { get; set; }
+        public List<DisciplinaListadoDTO> Disciplinas { get; set; }
+    }
+}
+
+***********************************
+Archivo: DisciplinaListadoDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Disciplina\DisciplinaListadoDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Disciplina
+{
+    public class DisciplinaListadoDTO
+    {
+        public string Nombre { get; set; }
+        public DateTime AñoIngreso { get; set; }
+        public int Id { get; set; }
+    }
+}
+
+***********************************
+Archivo: ListaDisciplinaFiltradaDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Disciplina\ListaDisciplinaFiltradaDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Disciplina
+{
+    public class ListaDisciplinaFiltradaDTO
+    {
+        public string Nombre { get; set; }
+        public int Id { get; set; }
+    }
+}
+
+***********************************
+Archivo: NewDisciplinaDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Disciplina\NewDisciplinaDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Disciplina
+{
+    public class NewDisciplinaDTO
+    {
+        public string Nombre { get; set; }
+        public int Id { get; set; }
+    }
+}
+
+***********************************
+Archivo: EventoDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Eventos\EventoDTO.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Puntaje;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Eventos
+{
+    public class EventoDTO
+    {
+        public int Id { get; set; }
+        public int Disciplina { get; set; }
+        public string NombrePrueba { get; set; }
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin {  get; set; }
+        public List<AtletaListadoDTO> Atletas { get; set; }
+        public List<PuntajeListadoDTO> Puntajes { get; set; }
+    }
+}
+
+***********************************
+Archivo: PuntajeListadoDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Puntaje\PuntajeListadoDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Puntaje
+{
+    public class PuntajeListadoDTO
+    {
+        public int AtletaId { get; set; }
+        public int EventoId { get; set; }
+        public decimal Valor { get; set; }
+    }
+}
+
+***********************************
+Archivo: UsuarioDetalleDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Usuarios\UsuarioDetalleDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Usuarios
+{
+    public class UsuarioDetalleDTO
+    {
+        public int Id {  get; set; }
+        public string Email { get; set; }
+        public string Contraseña { get; set; }
+        public string Rol {  get; set; }
+        public int AdminId { get; set; }
+    }
+}
+
+***********************************
+Archivo: UsuarioDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Usuarios\UsuarioDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Usuarios
+{
+    public class UsuarioDTO
+    {
+        public string Email { get; set; }
+        public string Contraseña { get; set; }
+        public string Rol { get; set; }
+        public int AdminId { get; set; }
+    }
+}
+
+***********************************
+Archivo: UsuarioListadoDTO.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\Compartido\DTOs\Usuarios\UsuarioListadoDTO.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Compartido.DTOs.Usuarios
+{
+    public class UsuarioListadoDTO
+    {
+        public string Email { get; set; }
+        public string Rol { get; set; }
+        public int Id { get; set; }
+        public string Token { get; set; }
+    }
+}
+
+***********************************
+Archivo: AgregarDisciplinaAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Atletas\AgregarDisciplinaAtleta.cs
+***********************************
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Atletas
+{
+    public class AgregarDisciplinaAtleta: IAgregarDisciplinaAtleta
+    {
+        public IRepositorioAtleta RepoAtletas { get; set; }
+        public AgregarDisciplinaAtleta(IRepositorioAtleta repoAtletas)
+        {
+            RepoAtletas = repoAtletas;
+        }
+        public void Ejecutar(int atletaId, int disciplinaId)
+        {
+            RepoAtletas.AddDisciplina(atletaId, disciplinaId);
+        }
+    }
+}
+
+***********************************
+Archivo: BuscarAtletasFiltradosPorDiscId.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Atletas\BuscarAtletasFiltradosPorDiscId.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Atletas
+{
+    public class BuscarAtletasFiltradosPorDiscId : IBuscarAtletasFiltradosPorDiscId
+    {
+        public IRepositorioAtleta RepoAtletas { get; set; }
+        public BuscarAtletasFiltradosPorDiscId(IRepositorioAtleta repoAtletas)
+        {
+            RepoAtletas = repoAtletas;
+        }
+        public IEnumerable<AtletaListadoDTO> Ejecutar(int id)
+        {
+            IEnumerable<Atleta> atletas = RepoAtletas.FindAllFilteredByDiscId(id);
+            return MapperAtleta.ListAtletaToListAtletaDTO(atletas.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: DetalleAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Atletas\DetalleAtleta.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.Mappers;
+using LogicaAccesoDatos.Repositorios;
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Atleta;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Atletas
+{
+    public class DetalleAtleta : IDetalleAtleta
+    {
+        public IRepositorioAtleta RepoAtletas { get; set; }
+        public DetalleAtleta(IRepositorioAtleta repoAtletas)
+        {
+            RepoAtletas = repoAtletas;
+        }
+        public AtletaDetalleDTO Ejecutar(int id)
+        {
+            Atleta atleta = RepoAtletas.FindbyId(id);
+            if (atleta == null)
+            {
+                throw new AtletaException("No se encontro el atleta");
+            }
+            return MapperAtleta.AtletaToAtletaDetalleDTO(atleta);
+        }
+    }
+}
+
+***********************************
+Archivo: ListaAtletas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Atletas\ListaAtletas.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Atletas
+{
+    public class ListaAtletas : IListaAtletas
+    {
+        public IRepositorioAtleta RepoAtletas { get; set; }
+        public ListaAtletas(IRepositorioAtleta repoAtletas)
+        {
+            RepoAtletas = repoAtletas;
+        }
+
+        public IEnumerable<AtletaListadoDTO> Ejecutar()
+        {
+            IEnumerable<Atleta> atletas = RepoAtletas.FindAll();
+            return MapperAtleta.ListAtletaToListAtletaDTO(atletas.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: ListaDisciplinasFiltradas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Atletas\ListaDisciplinasFiltradas.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Atletas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Atletas
+{
+    public class ListaDisciplinasFiltradas : IListaDisciplinasFiltradas
+    {
+        public IRepositorioAtleta RepoAtleta { get; set; }
+        public ListaDisciplinasFiltradas(IRepositorioAtleta repoAtleta)
+        {
+            RepoAtleta = repoAtleta;
+        }
+        public IEnumerable<ListaDisciplinaFiltradaDTO> Ejecutar(int id)
+        {
+            IEnumerable<Disciplina> disciplinasFiltradas = RepoAtleta.FindAllFiltered(id);
+            return MapperDisciplina.ListaDisciplinaFilteredToDisciplinaFilteredDTO(disciplinasFiltradas.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: AltaDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\AltaDisciplina.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class AltaDisciplina : IAltaDisciplina
+    {
+        public IRepositorioDisciplina RepoDisciplina { get; set; }
+        public AltaDisciplina(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplina = repoDisciplina;
+        }
+        public void Ejecutar(NewDisciplinaDTO disciplinaDTO)
+        {
+            Disciplina disciplina = MapperDisciplina.DTODisciplinaToDisciplina(disciplinaDTO);
+            RepoDisciplina.Add(disciplina);
+            disciplinaDTO.Id = disciplina.Id;
+        }
+    }
+}
+
+***********************************
+Archivo: BuscarDisciplinaID.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\BuscarDisciplinaID.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class BuscarDisciplinaID : IBuscarDisciplinaID
+    {
+        public IRepositorioDisciplina RepoDisciplinas { get; set; }
+        public BuscarDisciplinaID(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplinas = repoDisciplina;
+        }
+        public DisciplinaListadoDTO Ejecutar(int id)
+        {
+            Disciplina disciplina = RepoDisciplinas.FindbyId(id);
+            if (disciplina == null)
+            {
+                throw new DisciplinaException("No se encontro la disciplina");
+            }
+            return MapperDisciplina.DisciplinaToDisciplinaListadoDTO(disciplina);
+        }
+    }
+}
+
+***********************************
+Archivo: BuscarDisciplinaNombre.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\BuscarDisciplinaNombre.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class BuscarDisciplinaNombre : IBuscarDisciplinaNombre
+    {
+        public IRepositorioDisciplina RepoDisciplinas { get; set; }
+        public BuscarDisciplinaNombre(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplinas = repoDisciplina;
+        }
+        public DisciplinaListadoDTO Ejecutar(string name)
+        {
+            Disciplina disciplina = RepoDisciplinas.FindByName(name);
+            if (disciplina == null)
+            {
+                throw new DisciplinaException("No se encontro la disciplina");
+            }
+            return MapperDisciplina.DisciplinaToDisciplinaListadoDTO(disciplina);
+        }
+    }
+}
+
+***********************************
+Archivo: EditarDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\EditarDisciplina.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class EditarDisciplina : IEditarDisciplina
+    {
+        public IRepositorioDisciplina RepoDisciplina { get; set; }
+        public EditarDisciplina(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplina = repoDisciplina;
+        }
+        public void Ejecutar(NewDisciplinaDTO disciplinaEditado, int id)
+        {
+            RepoDisciplina.Update(MapperDisciplina.DTODisciplinaToDisciplina(disciplinaEditado),id);
+        }
+    }
+}
+
+***********************************
+Archivo: EliminarDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\EliminarDisciplina.cs
+***********************************
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class EliminarDisciplina : IEliminarDisciplina
+    {
+        public IRepositorioDisciplina RepoDisciplina { get; set; }
+        public EliminarDisciplina(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplina = repoDisciplina;
+        }
+        public void Ejecutar(int id)
+        {
+            RepoDisciplina.Delete(id);
+        }
+    }
+}
+
+***********************************
+Archivo: ListaDisciplinas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Disciplinas\ListaDisciplinas.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Disciplinas;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Disciplinas
+{
+    public class ListaDisciplinas : IListaDisciplinas
+    {
+        public IRepositorioDisciplina RepoDisciplinas { get; set; }
+        public ListaDisciplinas(IRepositorioDisciplina repoDisciplina)
+        {
+            RepoDisciplinas = repoDisciplina;
+        }
+        public IEnumerable<DisciplinaListadoDTO> Ejecutar()
+        {
+            IEnumerable<Disciplina> disciplinas = RepoDisciplinas.FindAll();
+            return MapperDisciplina.ListDisciplinaToListDisciplinaDTO(disciplinas.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: EventoPorDisciplinaId.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Eventos\EventoPorDisciplinaId.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Eventos;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Evento;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Eventos
+{
+    public class EventoPorDisciplinaId : IEventoPorDisciplinaId
+    {
+        public IRepositorioEvento RepoEventos { get; set; }
+        public EventoPorDisciplinaId(IRepositorioEvento repoEventos)
+        {
+            RepoEventos = repoEventos;
+        }
+        public IEnumerable<EventoDTO> Ejecutar(int id)
+        {
+            IEnumerable<Evento> eventos = RepoEventos.FindByDiscId(id);
+            if (eventos == null)
+            {
+                throw new EventoException("No se encontro la disciplina");
+            }
+            return MapperEvento.ListEventoToEventoDTO(eventos.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: EventoPorNombreParcial.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Eventos\EventoPorNombreParcial.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Eventos;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException;
+using LogicaDeNegocio.ExcepcionesEntidades.Evento;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Eventos
+{
+    public class EventoPorNombreParcial : IEventoPorNombreParcial
+    {
+        public IRepositorioEvento RepoEventos { get; set; }
+        public EventoPorNombreParcial(IRepositorioEvento repoEventos)
+        {
+            RepoEventos = repoEventos;
+        }
+        public IEnumerable<EventoDTO> Ejecutar(string nombre)
+        {
+            IEnumerable<Evento> eventos = RepoEventos.FindByPartialName(nombre);
+            if (eventos == null)
+            {
+                throw new EventoException("No se encontro la disciplina");
+            }
+            return MapperEvento.ListEventoToEventoDTO(eventos.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: EventoPorRangoFechas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Eventos\EventoPorRangoFechas.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Eventos;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Evento;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Eventos
+{
+    public class EventoPorRangoFechas : IEventoPorRangoFechas
+    {
+        public IRepositorioEvento RepoEventos { get; set; }
+        public EventoPorRangoFechas(IRepositorioEvento repoEventos)
+        {
+            RepoEventos = repoEventos;
+        }
+        public IEnumerable<EventoDTO> Ejecutar(DateTime fechaInicio, DateTime fechafin)
+        {
+            IEnumerable<Evento> eventos = RepoEventos.FindByDateRange(fechaInicio, fechafin);
+            if (eventos == null)
+            {
+                throw new EventoException("No se encontro la disciplina");
+            }
+            return MapperEvento.ListEventoToEventoDTO(eventos.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: EventoPorRangoPuntajes.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Eventos\EventoPorRangoPuntajes.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Eventos;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Evento;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Eventos
+{
+    public class EventoPorRangoPuntajes : IEventoPorRangoPuntajes
+    {
+        public IRepositorioEvento RepoEventos { get; set; }
+        public EventoPorRangoPuntajes(IRepositorioEvento repoEventos)
+        {
+            RepoEventos = repoEventos;
+        }
+        public IEnumerable<EventoDTO> Ejecutar(decimal pmin, decimal pmax)
+        {
+            IEnumerable<Evento> eventos = RepoEventos.FindByPointsRange(pmin, pmax);
+            if (eventos == null)
+            {
+                throw new EventoException("No se encontro la disciplina");
+            }
+            return MapperEvento.ListEventoToEventoDTO(eventos.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: AltaUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\AltaUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAccesoDatos.Repositorios;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class AltaUsuario: IAltaUsuario
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; } 
+        public AltaUsuario(IRepositorioUsuario repoUsuarios)
+        {
+            RepoUsuarios = repoUsuarios;
+        }
+        public void Ejecutar(UsuarioDTO usuarioDTO)
+        {
+            Usuario usuario = MapperUsuario.DTOUsuarioToUsuario(usuarioDTO);
+            RepoUsuarios.Add(usuario);
+        }
+    }
+}
+
+***********************************
+Archivo: DetalleUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\DetalleUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.ExcepcionesEntidades.Usuario;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class DetalleUsuario : IDetalleUsuario
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; }
+        public DetalleUsuario(IRepositorioUsuario repoUsuarios)
+        {
+            RepoUsuarios = repoUsuarios;
+        }
+        public UsuarioDetalleDTO Ejecutar(int id)
+        {
+            Usuario usuario = RepoUsuarios.FindbyId(id);
+            if (usuario == null)
+            {
+                throw new UsuarioException("No se encontro el usuario");
+            }
+            return MapperUsuario.UsuarioToUsuarioDetalleDTO(usuario);
+        }
+    }
+}
+
+***********************************
+Archivo: EditarUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\EditarUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class EditarUsuario : IEditarUsuario
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; }
+        public EditarUsuario(IRepositorioUsuario repoUsuarios)
+        {
+            RepoUsuarios = repoUsuarios;
+        }
+        public void Ejecutar(UsuarioDetalleDTO usuarioDetalleDTO, int id)
+        {
+            Usuario usuario = MapperUsuario.UsuarioDetalleAUsuario(usuarioDetalleDTO);
+            RepoUsuarios.Update(usuario, id);
+        }
+    }
+}
+
+***********************************
+Archivo: EliminarUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\EliminarUsuario.cs
+***********************************
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class EliminarUsuario : IEliminarUsuario
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; }
+        public EliminarUsuario(IRepositorioUsuario repoUsuario)
+        {
+            RepoUsuarios = repoUsuario;
+        }
+        public void Ejecutar(int id)
+        {
+            RepoUsuarios.Delete(id);
+        }
+    }
+}
+
+***********************************
+Archivo: ListaUsuarios.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\ListaUsuarios.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAccesoDatos.Repositorios;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class ListaUsuarios: IListaUsuarios
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; }
+        public ListaUsuarios(IRepositorioUsuario repoUsuarios)
+        {
+            RepoUsuarios = repoUsuarios;
+        }
+        public IEnumerable<UsuarioListadoDTO> Ejecutar()
+        {
+            IEnumerable<Usuario> usuarios = RepoUsuarios.FindAll();
+            return MapperUsuario.ListUsuarioToListUsuarioDTO(usuarios.ToList());
+        }
+    }
+}
+
+***********************************
+Archivo: LoginUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\ImplementacionCasosUso\Usuarios\LoginUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using Compartido.Mappers;
+using LogicaAplicacion.InterfaceCasosUso.Usuarios;
+using LogicaDeNegocio.Entidades;
+using LogicaDeNegocio.InterfacesRepositorio;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.ImplementacionCasosUso.Usuarios
+{
+    public class LoginUsuario : ILoginUsuario
+    {
+        public IRepositorioUsuario RepoUsuarios { get; set; }
+
+        public LoginUsuario(IRepositorioUsuario repoUsuarios)
+        {
+            RepoUsuarios = repoUsuarios;
+        }
+
+        public UsuarioListadoDTO Ejecutar(string name, string password)
+        {
+            Usuario usuario = RepoUsuarios.FindByEmailAndPassword(name, password);
+            return MapperUsuario.UsuarioToUsuarioListadoDTO(usuario);
+        }
+    }
+}
+***********************************
+Archivo: IAgregarDisciplinaAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Atletas\IAgregarDisciplinaAtleta.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Atletas
+{
+    public interface IAgregarDisciplinaAtleta
+    {
+        void Ejecutar(int atletaId, int disciplinaId);
+    }
+}
+
+***********************************
+Archivo: IBuscarAtletasFiltradosPorDiscId.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Atletas\IBuscarAtletasFiltradosPorDiscId.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Atletas
+{
+    public interface IBuscarAtletasFiltradosPorDiscId
+    {
+        IEnumerable<AtletaListadoDTO> Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IDetalleAtleta.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Atletas\IDetalleAtleta.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Atletas
+{
+    public interface IDetalleAtleta
+    {
+        AtletaDetalleDTO Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IListaAtletas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Atletas\IListaAtletas.cs
+***********************************
+using Compartido.DTOs.Atletas;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Atletas
+{
+    public interface IListaAtletas
+    {
+        IEnumerable<AtletaListadoDTO> Ejecutar();
+    }
+}
+
+***********************************
+Archivo: IListaDisciplinasFiltradas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Atletas\IListaDisciplinasFiltradas.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Atletas
+{
+    public interface IListaDisciplinasFiltradas
+    {
+        IEnumerable<ListaDisciplinaFiltradaDTO> Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IAltaDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IAltaDisciplina.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IAltaDisciplina
+    {
+        void Ejecutar(NewDisciplinaDTO disciplinaDTO);
+    }
+}
+
+***********************************
+Archivo: IBuscarDisciplinaID.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IBuscarDisciplinaID.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IBuscarDisciplinaID
+    {
+        DisciplinaListadoDTO Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IBuscarDisciplinaNombre.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IBuscarDisciplinaNombre.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IBuscarDisciplinaNombre
+    {
+        DisciplinaListadoDTO Ejecutar(string name);
+    }
+}
+
+***********************************
+Archivo: IEditarDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IEditarDisciplina.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IEditarDisciplina
+    {
+        void Ejecutar(NewDisciplinaDTO disciplinaEditado, int id);
+    }
+}
+
+***********************************
+Archivo: IEliminarDisciplina.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IEliminarDisciplina.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IEliminarDisciplina
+    {
+        void Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IListaDisciplinas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Disciplinas\IListaDisciplinas.cs
+***********************************
+using Compartido.DTOs.Disciplina;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Disciplinas
+{
+    public interface IListaDisciplinas
+    {
+        IEnumerable<DisciplinaListadoDTO> Ejecutar();
+    }
+}
+
+***********************************
+Archivo: IAltaEvento.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Eventos\IAltaEvento.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Eventos
+{
+    public interface IAltaEvento
+    {
+        //void Ejecutar(EventoDTO editorialDTO);
+    }
+}
+
+***********************************
+Archivo: IEventoPorDisciplinaId.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Eventos\IEventoPorDisciplinaId.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Eventos
+{
+    public interface IEventoPorDisciplinaId
+    {
+        IEnumerable<EventoDTO> Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IEventoPorNombreParcial.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Eventos\IEventoPorNombreParcial.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Eventos
+{
+    public interface IEventoPorNombreParcial
+    {
+        IEnumerable<EventoDTO> Ejecutar(string nombre);
+    }
+}
+
+***********************************
+Archivo: IEventoPorRangoFechas.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Eventos\IEventoPorRangoFechas.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Eventos
+{
+    public interface IEventoPorRangoFechas
+    {
+        IEnumerable<EventoDTO> Ejecutar(DateTime fechaInicio, DateTime fechafin);
+    }
+}
+
+***********************************
+Archivo: IEventoPorRangoPuntajes.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Eventos\IEventoPorRangoPuntajes.cs
+***********************************
+using Compartido.DTOs.Eventos;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Eventos
+{
+    public interface IEventoPorRangoPuntajes
+    {
+        IEnumerable<EventoDTO> Ejecutar(decimal pmin, decimal pmax);
+    }
+}
+
+***********************************
+Archivo: IAltaUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\IAltaUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface IAltaUsuario
+    {
+        void Ejecutar(UsuarioDTO usuarioDTO);
+    }
+}
+
+***********************************
+Archivo: IDetalleUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\IDetalleUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface IDetalleUsuario
+    {
+        UsuarioDetalleDTO Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IEditarUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\IEditarUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface IEditarUsuario
+    {
+        void Ejecutar(UsuarioDetalleDTO usuarioDetalleDTO, int id);
+    }
+}
+
+***********************************
+Archivo: IEliminarUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\IEliminarUsuario.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface IEliminarUsuario
+    {
+        void Ejecutar(int id);
+    }
+}
+
+***********************************
+Archivo: IListaUsuarios.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\IListaUsuarios.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface IListaUsuarios
+    {
+        IEnumerable<UsuarioListadoDTO> Ejecutar();
+    }
+}
+
+***********************************
+Archivo: ILoginUsuario.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaAplicacion\InterfaceCasosUso\Usuarios\ILoginUsuario.cs
+***********************************
+using Compartido.DTOs.Usuarios;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaAplicacion.InterfaceCasosUso.Usuarios
+{
+    public interface ILoginUsuario
+    {
+        UsuarioListadoDTO Ejecutar(string name, string password);
+    }
+}
+***********************************
+Archivo: AtletaException.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ExcepcionesEntidades\Atleta\AtletaException.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ExcepcionesEntidades.Atleta
+{
+    public class AtletaException : Exception
+    {
+        public AtletaException() { }
+        public AtletaException(string message) : base(message) { }
+        public AtletaException(string message, Exception innerException) : base(message, innerException) { }
+    }
+}
+***********************************
+Archivo: DisciplinaException.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ExcepcionesEntidades\Disciplina\DisciplinaException.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ExcepcionesEntidades.DisciplinaException
+{
+    public class DisciplinaException : Exception
+    {
+        public DisciplinaException() { }
+        public DisciplinaException(string message) : base(message) { }
+        public DisciplinaException(string message, Exception innerException) : base(message, innerException) { }
+    }
+}
+
+***********************************
+Archivo: EventoException.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ExcepcionesEntidades\Evento\EventoException.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ExcepcionesEntidades.Evento
+{
+    public class EventoException : Exception
+    {
+        public EventoException() { }
+        public EventoException(string message) : base(message) { }
+        public EventoException(string message, Exception innerException) : base(message, innerException) { }
+    }
+}
+
+***********************************
+Archivo: UsuarioException.cs
+Carpeta: C:\Users\Axel\Desktop\ORT\Programacion 3\Obligatorio P3 para usar  para el obli 2\Obligatorio1\LogicaDeNegocio\ExcepcionesEntidades\Usuario\UsuarioException.cs
+***********************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace LogicaDeNegocio.ExcepcionesEntidades.Usuario
+{
+    public class UsuarioException : Exception
+    {
+        public UsuarioException() { }
+        public UsuarioException(string message) : base(message) { }
+        public UsuarioException(string message, Exception innerException) : base(message, innerException) { }
+    }
+}
